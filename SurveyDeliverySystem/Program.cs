@@ -19,10 +19,6 @@ builder.Services.AddSingleton<Validator>();
 // Register SendGridEmailSender
 builder.Services.AddSingleton<IEmailSender, SendGridEmailSender>();
 
-// Wrap SendGridEmailSender with RetryEmailSender
-builder.Services.Decorate<IEmailSender, RetryEmailSender>(); // Here we were facing the issue.
-                                                             // Issue resolved using Scrutor's Decorate method, which wraps IEmailSender (e.g., SendGridEmailSender) 
-                                                             // with RetryEmailSender to add retry logic to the email-sending process.
 
 builder.Services.AddScoped<ISurveyService, SurveyService>();
 
