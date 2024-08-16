@@ -8,6 +8,8 @@ namespace SurveyDeliverySystem.Business.Validation
     {
         public SurveyEmailInfoValidator()
         {
+            // https://regex101.com/ is a good website to test regex patterns 
+
             RuleFor(x => x.AdminEmail)
             .NotEmpty().WithMessage(ErrorKeys.InvalidEmail)
             .EmailAddress().WithMessage(ErrorKeys.InvalidEmail);
