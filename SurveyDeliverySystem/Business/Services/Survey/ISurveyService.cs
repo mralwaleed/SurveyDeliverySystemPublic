@@ -4,6 +4,6 @@ namespace SurveyDeliverySystem.Business.Services.Survey
 {
     public interface ISurveyService
     {
-        Task ProcessEmailAsync(SurveyEmailInfo emailInfo, SurveyResponse response);
+        Task ProcessEmailAsync(SurveyRequest emailInfo, SurveyResponse response);
     }
 }

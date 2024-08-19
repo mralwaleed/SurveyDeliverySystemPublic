@@ -24,23 +24,10 @@ namespace SurveyDeliverySystem.Controllers
         [HttpPost("create-survey")]
         public async Task<IActionResult> CreateSurvey([FromBody] SurveyRequest request)
         {
-            var response = new SurveyResponse
-            {
-                Message = "Survey emails are being processed."
-            };
+            var response = new SurveyResponse();
 
-            var emailTasks = request.Domains
-                .Select(domain => _surveyService.ProcessEmailAsync(new SurveyEmailInfo
-                {
-                    AdminEmail = domain.AdminEmail,
-                    DomainName = domain.DomainName,
-                    SurveyUrl = request.SurveyUrl
-                }, response))
-                .ToList();
-
-            await Task.WhenAll(emailTasks);
-
-            response.Message = $"Processed {response.TotalEmails} emails with {response.SuccessfulEmails} successes and {response.FailedEmails} failures.";
+            // Process all emails and send them together in BCC
+            await _surveyService.ProcessEmailAsync(request, response);
 
             return Ok(response);
         }

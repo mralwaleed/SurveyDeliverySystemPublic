@@ -11,40 +11,54 @@ namespace SurveyDeliverySystem.Business.Services.Survey
     public class SurveyService : ISurveyService
     {
         private readonly IEmailSender _emailSender;
-        private readonly IValidator<SurveyEmailInfo> _validator;
+        private readonly IValidator<SurveyRequest> _validator;
         private readonly ILogger<SurveyService> _logger;
 
-        public SurveyService(IEmailSender emailSender, IValidator<SurveyEmailInfo> validator, ILogger<SurveyService> logger)
+        public SurveyService(IEmailSender emailSender, IValidator<SurveyRequest> validator, ILogger<SurveyService> logger)
         {
             _emailSender = emailSender;
             _validator = validator;
             _logger = logger;
         }
 
-        public async Task ProcessEmailAsync(SurveyEmailInfo emailInfo, SurveyResponse response)
+        public async Task ProcessEmailAsync(SurveyRequest request, SurveyResponse response)
         {
-            var validationResult = _validator.Validate(emailInfo);
+            var validationResult = _validator.Validate(request);
             if (!validationResult.IsValid)
             {
                 foreach (var error in validationResult.Errors)
                 {
                     _logger.LogWarning($"Validation error: {error.ErrorMessage}");
+                    response.Errors.ValidationErrors += $"{error.ErrorMessage}\n";
                 }
-
-                response.FailedEmails++;
+                response.Message = "Validation errors occurred. No emails were sent.";
                 return;
             }
+            var emailAddresses = request.Domains.Select(domain => domain.AdminEmail).ToList();
+            response.TotalEmails = emailAddresses.Count;
 
-            // Proceed with email sending if validation passes
-            bool success = await _emailSender.SendEmailAsync(emailInfo);
-            if (success)
+            // Proceed with sending emails in BCC if all are valid
+            response.TotalEmails = emailAddresses.Count;
+
+            if (emailAddresses.Any())
             {
-                response.SuccessfulEmails++;
+                bool success = await _emailSender.SendEmailsInBccAsync(request.SurveyUrl, emailAddresses);
+
+                response.Message = success
+                    ? $"Successfully sent emails to {response.TotalEmails} recipients."
+                    : "Failed to send emails.";
+
+                if (!success)
+                {
+                    response.Errors.ProcessingErrors = "Failed to send emails due to an unknown error.";
+                }
             }
             else
             {
-                response.FailedEmails++;
+                response.Message = "No valid email addresses found. No emails were sent.";
             }
+
+
         }
     }
 }

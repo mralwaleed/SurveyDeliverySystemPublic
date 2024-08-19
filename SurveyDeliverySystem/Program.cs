@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using FluentValidation;
 using SurveyDeliverySystem.Models;
 using FluentValidation.AspNetCore;
+using SurveyDeliverySystem.Business.Services;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -17,15 +18,15 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<EmailSettingsConfig>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.Configure<SendGridSettingsConfig>(builder.Configuration.GetSection("SendGridSettings"));
 
+// Register RetryUtility as IRetryUtility
+builder.Services.AddSingleton<IRetryUtility, RetryUtility>();
 
 // Register FluentValidation
 builder.Services.AddControllers()
-    .AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<SurveyEmailInfoValidator>());
+    .AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<SurveyRequestValidator>());
 
-// Alternatively, you can register validators individually
-builder.Services.AddScoped<IValidator<SurveyEmailInfo>, SurveyEmailInfoValidator>();
-
-// Register SendGridEmailSender
+builder.Services.AddScoped<IValidator<SurveyRequest>, SurveyRequestValidator>();
+builder.Services.AddScoped<IValidator<SurveyRequest.Domain>, DomainValidator>();// Register SendGridEmailSender
 builder.Services.AddSingleton<IEmailSender, SendGridEmailSender>();
 
 

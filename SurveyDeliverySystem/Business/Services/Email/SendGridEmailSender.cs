@@ -4,7 +4,8 @@ using SendGrid.Helpers.Mail;
 using SurveyDeliverySystem.Config;
 using SurveyDeliverySystem.Models;
 using System.Net.Mail;
-using Polly;
+using static SurveyDeliverySystem.Models.SurveyRequest;
+
 
 namespace SurveyDeliverySystem.Business.Services.Email
 {
@@ -12,50 +13,15 @@ namespace SurveyDeliverySystem.Business.Services.Email
     {
         private readonly SendGridSettingsConfig _sendGridConfig;
         private readonly ILogger<SendGridEmailSender> _logger;
-        private readonly AsyncPolicy<bool> _resiliencePolicy;
+        private readonly IRetryUtility _retryUtility;
 
 
 
-        public SendGridEmailSender(IOptions<SendGridSettingsConfig> sendGridConfig, IOptions<EmailSettingsConfig> emailSettingsConfig, ILogger<SendGridEmailSender> logger)
+        public SendGridEmailSender(IOptions<SendGridSettingsConfig> sendGridConfig, IRetryUtility retryUtility, ILogger<SendGridEmailSender> logger)
         {
             _sendGridConfig = sendGridConfig.Value;
             _logger = logger;
-
-
-
-            var emileSetting = emailSettingsConfig.Value;
-
-
-            var retryPolicy = Policy.Handle<Exception>() // or use SmtpException 
-                .WaitAndRetryAsync(
-                retryCount: emileSetting.MaxRetryAttempts,
-                sleepDurationProvider: attempt => TimeSpan.FromSeconds(emileSetting.RetryBaseDelaySeconds * Math.Pow(2, attempt - 1)), // Exponential backoff
-                onRetry: (exception, timeSpan, retryCount, context) =>
-                {
-                    _logger.LogWarning($"Failed to send email. Retrying attempt {retryCount} after {timeSpan}. Exception: {exception.Message}");
-                });
-
-            // Define a fallback policy
-            var fallbackPolicy = Policy<bool>
-           .Handle<SmtpException>()
-           .Or<Exception>()
-           .FallbackAsync(
-               fallbackValue: false, // Fallback value in case of failure
-               onFallbackAsync: (exception, context) =>
-               {
-                   _logger.LogError($"All retries failed. Executing fallback due to: {exception.Exception.Message}");
-                   return Task.CompletedTask;
-               }
-           );
-            // to handel the exception and log it and return we will use the fallback policy 
-            // This helped me to understand how to use the fallback policy and handle the exception and log it and return
-            // https://stackoverflow.com/questions/42952057/polly-policy-to-log-exception-and-rethrow
-
-
-            // Combine the retry and fallback policies
-            _resiliencePolicy = fallbackPolicy.WrapAsync(retryPolicy);
-
-
+            _retryUtility = retryUtility;
 
         }
 
@@ -63,43 +29,41 @@ namespace SurveyDeliverySystem.Business.Services.Email
 
 
 
-        public async Task<bool> SendEmailAsync(SurveyEmailInfo emailInfo)
+        public async Task<bool> SendEmailsInBccAsync(string surveyUrl, List<string> bccEmails)
         {
-
-            return await _resiliencePolicy.ExecuteAsync(async () =>
+            return await _retryUtility.ExecuteAsync(async () =>
             {
-                // Simulate a failure on the first attempt to test retry logic :) 
-                // change to 1 to 4 if you want to test the chance of failure and test the retry and chance will be 25% to simulate failure :)
-                if (new Random().Next(4, 4) == 1)
+                try
                 {
-                    throw new SmtpException(SmtpStatusCode.ServiceNotAvailable, "Simulated transient failure");
-                }
+                    var client = new SendGridClient(_sendGridConfig.ApiKey);
+                    var from = new EmailAddress(_sendGridConfig.FromEmail, _sendGridConfig.FromName);
+                    var subject = "Survey Invitation";
+                    var to = new EmailAddress("noreply@alwaleedAPP.com"); // Dummy TO address, since all recipients will be in BCC.
+                    var plainTextContent = $"Please take the survey at {surveyUrl}.";
+                    var htmlContent = $"<strong>Please take the survey at {surveyUrl}.</strong>";
+                    var msg = MailHelper.CreateSingleEmail(from, to, subject, plainTextContent, htmlContent);
 
-                var client = new SendGridClient(_sendGridConfig.ApiKey);
-                var from = new EmailAddress(_sendGridConfig.FromEmail, _sendGridConfig.FromName);
-                var subject = $"Survey for {emailInfo.DomainName}";
-                var to = new EmailAddress(emailInfo.AdminEmail);
-                var plainTextContent = $"Please take the survey at {emailInfo.SurveyUrl}.";
-                var htmlContent = $"<strong>Please take the survey at {emailInfo.SurveyUrl}.</strong>";
-                var msg = MailHelper.CreateSingleEmail(from, to, subject, plainTextContent, htmlContent);
-                var response = await client.SendEmailAsync(msg);
+                    foreach (var bccEmail in bccEmails)
+                    {
+                        msg.AddBcc(new EmailAddress(bccEmail));
+                    }
 
-                //  return response.StatusCode == System.Net.HttpStatusCode.OK;
+                    var response = await client.SendEmailAsync(msg);
 
-                if (response.StatusCode == System.Net.HttpStatusCode.Accepted)
-                {
-                    _logger.LogInformation($"Email sent successfully to {emailInfo.AdminEmail} for domain {emailInfo.DomainName}.");
-                    return true;
+                    if (response.StatusCode == System.Net.HttpStatusCode.Accepted)
+                    {
+                        _logger.LogInformation($"Email sent successfully to {string.Join(", ", bccEmails)}.");
+                        return true;
+                    }
+                    else
+                    {
+                        _logger.LogError($"Failed to send email. Status code: {response.StatusCode}");
+                        return false;
+                    }
                 }
-                else if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+                catch (Exception ex)
                 {
-                    _logger.LogError("Failed to send email: Forbidden. Check your API key and permissions.");
-                    throw new SmtpException(SmtpStatusCode.ServiceNotAvailable, "Simulated transient failure");
-                }
-                else
-                {
-                    var responseBody = await response.Body.ReadAsStringAsync();
-                    _logger.LogError($"Failed to send email to {emailInfo.AdminEmail} for domain {emailInfo.DomainName}. Status Code: {response.StatusCode}, Response: {responseBody}");
+                    _logger.LogError($"Failed to send email: {ex.Message}");
                     return false;
                 }
             });
