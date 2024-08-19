@@ -18,7 +18,7 @@ namespace SurveyDeliverySystem.Tests.Validators
         [Test]
         public void Should_Have_Error_When_AdminEmail_Is_Empty()
         {
-            var domain = new SurveyRequest.Domain { AdminEmail = "", DomainName = "example.com" };
+            var domain = new SurveyRequest.Domain { AdminEmail = "", DomainName = "test.com" };
 
             var result = _validator.TestValidate(domain);
 
@@ -29,7 +29,7 @@ namespace SurveyDeliverySystem.Tests.Validators
         [Test]
         public void Should_Have_Error_When_AdminEmail_Is_Invalid()
         {
-            var domain = new SurveyRequest.Domain { AdminEmail = "invalid-email", DomainName = "example.com" };
+            var domain = new SurveyRequest.Domain { AdminEmail = "invalid-email", DomainName = "test.com" };
 
             var result = _validator.TestValidate(domain);
 
@@ -40,7 +40,7 @@ namespace SurveyDeliverySystem.Tests.Validators
         [Test]
         public void Should_Have_Error_When_DomainName_Is_Invalid()
         {
-            var domain = new SurveyRequest.Domain { AdminEmail = "admin@example.com", DomainName = "invalid_domain" };
+            var domain = new SurveyRequest.Domain { AdminEmail = "admin@test.com", DomainName = "invalid_domain" };
 
             var result = _validator.TestValidate(domain);
 
@@ -51,12 +51,12 @@ namespace SurveyDeliverySystem.Tests.Validators
         [Test]
         public void Should_Have_Error_When_Email_Domain_Does_Not_Match()
         {
-            var domain = new SurveyRequest.Domain { AdminEmail = "admin@example.com", DomainName = "different.com" };
+            var domain = new SurveyRequest.Domain { AdminEmail = "admin@test.com", DomainName = "different.com" };
 
             var result = _validator.TestValidate(domain);
 
             result.ShouldHaveValidationErrorFor(x => x)
-                .WithErrorMessage("ERROR_INVALID_DOMAIN: Admin email 'admin@example.com' does not match the domain 'different.com'.");
+                .WithErrorMessage("ERROR_INVALID_DOMAIN: Admin email 'admin@test.com' does not match the domain 'different.com'.");
         }
 
         [Test]
