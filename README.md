@@ -101,44 +101,76 @@ The **Survey Delivery System** automates the delivery of survey links to domain 
    }
    ```
 
-### Testing the Retry Mechanism
 
-1. **Simulate Failure in SendGridEmailSender**:
-   Modify the `SendGridEmailSender` to simulate a failure with a random chance to trigger the retry logic:
+### Testing Frameworks Used
+
+- **NUnit**: A popular and robust testing framework for .NET.
+- **Moq**: A library for creating mock objects and setting up expectations in unit tests.
+- **FluentValidation.TestHelper**: Assists in testing FluentValidation validators.
+- **Microsoft.NET.Test.Sdk**: Required for running tests in .NET projects.
+
+### Running Unit Tests
+
+To run the unit tests included in this project, follow these steps:
+
+1. **Navigate to the Test Project Directory**:
+   In your terminal or command prompt, navigate to the directory containing the test project:
+   ```bash
+   cd SurveyDeliverySystem.Tests
+   ```
+
+2. **Run the Tests**:
+   Use the following command to run all the unit tests:
+   ```bash
+   dotnet test
+   ```
+   This command will build the test project and execute all the tests. The results, including any test failures, will be displayed in the terminal.
+
+3. **Understanding the Test Results**:
+   After running the tests, you'll see output indicating which tests passed and which failed. The output includes details about any failures, making it easier to identify and fix issues in the code.
+
+4. **Test Coverage**:
+   To check the code coverage of your tests, you can use the `coverlet.collector` package included in the project. This can help ensure that your tests are covering the necessary parts of your codebase.
+   ```bash
+   dotnet test /p:CollectCoverage=true
+   ```
+   This command will generate a coverage report, showing you which parts of your code are covered by the tests.
+
+### Writing New Tests
+
+If you want to contribute by adding new tests:
+
+1. **Create a New Test Class**:
+   Add new test classes in the `SurveyDeliverySystem.Tests` project under appropriate folders like `Services` or `Validators`.
+
+2. **Use NUnit's `[Test]` Attribute**:
+   Mark your test methods with the `[Test]` attribute.
+
+   Example:
    ```csharp
-   public async Task<bool> SendEmailAsync(SurveyEmailInfo emailInfo)
+   [Test]
+   public void ExampleTest()
    {
-       // Simulate a failure on the first attempt to test retry logic :) 
-       // change to 1 to 4 if you want to test the chance of failure and test the retry logic :)
-       if (new Random().Next(2, 4) == 1)  // 25% chance to simulate failure 
-       {
-           throw new SmtpException(SmtpStatusCode.ServiceNotAvailable, "Simulated transient failure");
-       }
+       // Arrange
+       var expected = 1;
 
-       // Continue with the normal email sending process
-       var client = new SendGridClient(_sendGridConfig.ApiKey);
-       var from = new EmailAddress(_sendGridConfig.FromEmail, _sendGridConfig.FromName);
-       var subject = $"Survey for {emailInfo.DomainName}";
-       var to = new EmailAddress(emailInfo.AdminEmail);
-       var plainTextContent = $"Please take the survey at {emailInfo.SurveyUrl}.";
-       var htmlContent = $"<strong>Please take the survey at {emailInfo.SurveyUrl}.</strong>";
-       var msg = MailHelper.CreateSingleEmail(from, to, subject, plainTextContent, htmlContent);
-       var response = await client.SendEmailAsync(msg);
+       // Act
+       var actual = 1;
 
-       return response.StatusCode == System.Net.HttpStatusCode.Accepted;
+       // Assert
+       Assert.AreEqual(expected, actual);
    }
-
-
-2. **Run the Application and Observe Logs**:
-   Start the application and monitor the logs to ensure the retry mechanism is functioning:
-   ```
-   Transient SMTP exception occurred. Retrying 1/3...
-   Transient SMTP exception occurred. Retrying 2/3...
-   Email sent successfully on attempt 3.
    ```
 
-3. **Remove or Adjust the Failure Simulation**:
-   After testing, remove or adjust the simulated failure to return to normal operations.
+3. **Mock Dependencies**:
+   Use the Moq library to mock dependencies in your unit tests.
+
+   Example:
+   ```csharp
+   var mockEmailSender = new Mock<IEmailSender>();
+   mockEmailSender.Setup(x => x.SendEmailAsync(It.IsAny<SurveyEmailInfo>())).ReturnsAsync(true);
+   ```
+
 
 ### Deployment
 
